@@ -1,0 +1,4 @@
+
+namespace coco {
+
+} // namespace coco
