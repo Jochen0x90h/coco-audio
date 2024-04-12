@@ -14,10 +14,6 @@ class Project(ConanFile):
         "platform": None}
     generators = "CMakeDeps", "CMakeToolchain"
     exports_sources = "conanfile.py", "CMakeLists.txt", "coco/*", "test/*"
-    requires = [
-        "coco-loop/pow10",
-        "coco-buffer/pow10"
-    ]
 
 
     # check if we are cross compiling
@@ -26,15 +22,17 @@ class Project(ConanFile):
             return self.settings.os != self.settings_build.os
         return False
 
+    def requirements(self):
+        self.requires("coco-loop/pow10", options={"platform": self.options.platform})
+        self.requires("coco-buffer/pow10", options={"platform": self.options.platform})
+
     def build_requirements(self):
         self.tool_requires("coco-toolchain/pow10", options={"platform": self.options.platform})
         self.test_requires("coco-devboards/pow10", options={"platform": self.options.platform})
 
-    def configure(self):
+    #def configure(self):
         # pass platform option to dependencies
-        self.options["coco/*"].platform = self.options.platform
-        self.options["coco-loop/*"].platform = self.options.platform
-        self.options["coco-buffer/*"].platform = self.options.platform
+    #    self.options["coco/*"].platform = self.options.platform
 
     keep_imports = True
     def imports(self):

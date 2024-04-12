@@ -32,7 +32,7 @@ elseif(${PLATFORM} MATCHES "^nrf52")
 		PRIVATE
 			nrf52/coco/platform/Audio_I2S.cpp
 	)
-elseif(${PLATFORM} MATCHES "^stm32f0")
+elseif(${PLATFORM} MATCHES "^stm32")
 
 endif()
 

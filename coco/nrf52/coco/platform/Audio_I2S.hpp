@@ -3,7 +3,7 @@
 #include <coco/BufferDevice.hpp>
 #include <coco/BufferImpl.hpp>
 #include <coco/Frequency.hpp>
-#include <coco/platform/Loop_RTC0.hpp>
+#include <coco/platform/Loop_Queue.hpp>
 #include <coco/platform/gpio.hpp>
 #include <coco/platform/nvic.hpp>
 
@@ -60,7 +60,7 @@ public:
 	};
 
 protected:
-	Audio_I2S(Loop_RTC0 &loop, int sckPin, int lrckPin, int dataPin, int sampleRate, Format format, int bufferWordCount);
+	Audio_I2S(Loop_Queue &loop, int sckPin, int lrckPin, int dataPin, int sampleRate, Format format, int bufferWordCount);
 
 public:
 	/**
@@ -73,7 +73,7 @@ public:
 		@param format sample format
 		@param bufferWordCount number of 32 bit words in each buffer
 	*/
-	Audio_I2S(Loop_RTC0 &loop, int sckPin, int lrckPin, int dataPin, Hertz<> sampleRate, Format format, int bufferWordCount)
+	Audio_I2S(Loop_Queue &loop, int sckPin, int lrckPin, int dataPin, Hertz<> sampleRate, Format format, int bufferWordCount)
 		: Audio_I2S(loop, sckPin, lrckPin, dataPin, sampleRate.value, format, bufferWordCount) {}
 
 	~Audio_I2S() override;
@@ -86,8 +86,8 @@ public:
 	BufferBase &getBuffer(int index);
 
 
-	// internal buffer base class, derives from IntrusiveListNode for the list of active transfers and Loop_RTC0::Handler2 to be notified from the event loop
-	class BufferBase : public BufferImpl, public IntrusiveListNode, public Loop_RTC0::Handler2 {
+	// internal buffer base class, derives from IntrusiveListNode for the list of active transfers and Loop_Queue::Handler to be notified from the event loop
+	class BufferBase : public BufferImpl, public IntrusiveListNode, public Loop_Queue::Handler {
 		friend class Audio_I2S;
 	public:
 		/**
@@ -133,7 +133,7 @@ public:
 protected:
 	void update();
 
-	Loop_RTC0 &loop;
+	Loop_Queue &loop;
 
 	// dummy (state is always READY)
 	CoroutineTaskList<> stateTasks;

@@ -9,14 +9,17 @@ namespace coco {
 
 constexpr int DEBUG_PIN = gpio::P0(3);
 
-Audio_I2S::Audio_I2S(Loop_RTC0 &loop, int sckPin, int lrckPin, int dataPin, int sampleRate, Format format,
+Audio_I2S::Audio_I2S(Loop_Queue &loop, int sckPin, int lrckPin, int dataPin, int sampleRate, Format format,
 	int bufferWordCount)
 	: loop(loop)
 {
 	// debug start indicator pin
-	gpio::configureOutput(DEBUG_PIN, false);
+	//gpio::configureOutput(DEBUG_PIN, false);
 
 	// configure I2S pins
+	gpio::configureOutput(sckPin, false);
+	gpio::configureOutput(lrckPin, false);
+	gpio::configureOutput(dataPin, false);
 	auto i2s = NRF_I2S;
 	//i2s->PSEL.MCK = DISCONNECTED;
 	i2s->PSEL.SCK = sckPin;

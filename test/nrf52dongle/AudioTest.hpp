@@ -1,6 +1,7 @@
 #pragma once
 
 #include <coco/platform/Audio_I2S.hpp>
+#include <coco/platform/Loop_RTC0.hpp>
 
 
 using namespace coco;
@@ -24,9 +25,19 @@ constexpr int SAMPLE_COUNT = 4096;
 constexpr int WORD_COUNT = SAMPLE_COUNT * sizeof(Sample) / 4;
 
 
-// drivers for AudioTest
+/**
+ * Drivers for AudioTest
+ * Connect a MAX98357A module like this to the nRF52 dongle
+ * LRC -> P0.21 (P21)
+ * BCLK -> P0.20 (P20)
+ * DIN -> P0.19 (P19)
+ * GAIN
+ * SD
+ * GND -> GND
+ * Uin -> +3.3V (3V3)
+ */
 struct Drivers {
-	Loop_RTC0 loop{Loop_RTC0::Mode::POLL};
+	Loop_RTC0 loop;
 	Audio_I2S audio{loop,
 		gpio::P0(20), // SCK
 		gpio::P0(21), // LRCK
