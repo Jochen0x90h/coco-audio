@@ -7,7 +7,7 @@
 
 namespace coco {
 
-constexpr auto DEBUG_PIN = gpio::Config::P0_3;// P0(3);
+constexpr auto DEBUG_PIN = gpio::P0_3;
 
 Audio_I2S::Audio_I2S(Loop_Queue &loop, gpio::Config sckPin, gpio::Config lrckPin, gpio::Config dataPin,
 	int sampleRate, Format format, int bufferWordCount)
@@ -15,18 +15,18 @@ Audio_I2S::Audio_I2S(Loop_Queue &loop, gpio::Config sckPin, gpio::Config lrckPin
 	, loop(loop)
 {
 	// debug start indicator pin
-	//gpio::configureOutput(DEBUG_PIN, false);
+	//gpio::enableOutput(DEBUG_PIN, false);
 
 	// configure I2S pins
-	gpio::configureOutput(sckPin, false);
-	gpio::configureOutput(lrckPin, false);
-	gpio::configureOutput(dataPin, false);
+	gpio::enableOutput(sckPin, false);
+	gpio::enableOutput(lrckPin, false);
+	gpio::enableOutput(dataPin, false);
 	auto i2s = NRF_I2S;
 	//i2s->PSEL.MCK = DISCONNECTED;
-	i2s->PSEL.SCK = gpio::getPinIndex(sckPin);
-	i2s->PSEL.LRCK = gpio::getPinIndex(lrckPin);
+	i2s->PSEL.SCK = gpio::getPinPortIndex(sckPin);
+	i2s->PSEL.LRCK = gpio::getPinPortIndex(lrckPin);
 	//i2s->PSEL.SDIN = DISCONNECTED;
-	i2s->PSEL.SDOUT = gpio::getPinIndex(dataPin);
+	i2s->PSEL.SDOUT = gpio::getPinPortIndex(dataPin);
 
 	int ratio = int(format) & 0xf;
 
