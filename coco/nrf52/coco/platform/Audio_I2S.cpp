@@ -12,7 +12,7 @@ constexpr auto DEBUG_PIN = gpio::P0_3;
 Audio_I2S::Audio_I2S(Loop_Queue &loop, gpio::Config sckPin, gpio::Config lrckPin, gpio::Config dataPin,
 	int sampleRate, Format format, int bufferWordCount)
 	: BufferDevice(State::READY)
-	, loop(loop)
+	, loop_(loop)
 {
 	// debug start indicator pin
 	//gpio::enableOutput(DEBUG_PIN, false);
@@ -54,32 +54,32 @@ Audio_I2S::~Audio_I2S() {
 }
 
 int Audio_I2S::getBufferCount() {
-	return this->buffers.count();
+	return buffers_.count();
 }
 
 Audio_I2S::BufferBase &Audio_I2S::getBuffer(int index) {
-	return this->buffers.get(index);
+	return buffers_.get(index);
 }
 
 void Audio_I2S::update() {
 	//gpio::setOutput(DEBUG_PIN, false);
 
-	if (this->transfer != nullptr) {
+	if (transfer_ != nullptr) {
 		// current transfer is ready: pass buffer to event loop so that app gets notified (via BufferBase::handle())
-		this->loop.push(*this->transfer);
-		this->transfer = nullptr;
+		loop_.push(*transfer_);
+		transfer_ = nullptr;
 	}
 
 	// start next buffer
-	if (this->transfers.pop(
+	if (transfers_.pop(
 		[this](BufferBase &buffer) {
 			// set as current transfer
-			this->transfer = &buffer;
+			transfer_ = &buffer;
 			return true;
 		},
 		[](BufferBase &next) {
 			// start next buffer
-			NRF_I2S->TXD.PTR = uintptr_t(next.p.data);
+			NRF_I2S->TXD.PTR = uintptr_t(next.data_);
 		}) == -1)
 	{
 		// no more buffers: stop I2S
@@ -92,31 +92,31 @@ void Audio_I2S::update() {
 // BufferBase
 
 Audio_I2S::BufferBase::BufferBase(uint8_t *data, int capacity, Audio_I2S &device)
-	: coco::Buffer(data, capacity, BufferBase::State::READY), device(device)
+	: coco::Buffer(data, capacity, BufferBase::State::READY), device_(device)
 {
-	device.buffers.add(*this);
+	device.buffers_.add(*this);
 }
 
 Audio_I2S::BufferBase::~BufferBase() {
 }
 
 bool Audio_I2S::BufferBase::start(Op op) {
-	if (this->st.state != State::READY) {
-		assert(this->st.state != State::BUSY);
+	if (st.state != State::READY) {
+		assert(st.state != State::BUSY);
 		return false;
 	}
-	auto &device = this->device;
+	auto &device = device_;
 
 	// check if WRITE flag is set
 	assert((op & Op::WRITE) != 0);
 
 	// add to list of pending transfers and start immediately if list was empty
 	nvic::disable(I2S_IRQn);
-	if (device.transfers.push(*this)) {
-		NRF_I2S->TXD.PTR = uintptr_t(this->p.data);
+	if (device.transfers_.push(*this)) {
+		NRF_I2S->TXD.PTR = uintptr_t(data_);
 
 		// start I2S if necessary
-		if (device.transfer == nullptr)
+		if (device.transfer_ == nullptr)
 			NRF_I2S->TASKS_START = TRIGGER;
 	}
 	nvic::enable(I2S_IRQn);
@@ -128,12 +128,12 @@ bool Audio_I2S::BufferBase::start(Op op) {
 }
 
 bool Audio_I2S::BufferBase::cancel() {
-	if (this->st.state != State::BUSY)
+	if (st.state != State::BUSY)
 		return false;
-	auto &device = this->device;
+	auto &device = device_;
 
 	// remove from pending transfers if not yet started, otherwise complete normally
-	if (device.transfers.remove(nvic::Guard(I2S_IRQn), *this, false) == 1)
+	if (device.transfers_.remove(nvic::Guard(I2S_IRQn), *this, false) == 1)
 		setReady(0);
 	return true;
 }

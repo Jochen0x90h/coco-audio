@@ -18,10 +18,10 @@ constexpr int SAMPLE_COUNT = 4096;
 
 // drivers for AudioTest
 struct Drivers {
-	Loop_native loop;
-	Audio_native audio{loop, 48000Hz, 1, FORMAT};
-	Audio_native::Buffer buffer1{audio, SAMPLE_COUNT * sizeof(Sample)};
-	Audio_native::Buffer buffer2{audio, SAMPLE_COUNT * sizeof(Sample)};
+    Loop_native loop;
+    Audio_native audio{loop, 48000Hz, 1, FORMAT};
+    Audio_native::Buffer buffer1{audio, SAMPLE_COUNT * sizeof(Sample)};
+    Audio_native::Buffer buffer2{audio, SAMPLE_COUNT * sizeof(Sample)};
 };
 
 Drivers drivers;

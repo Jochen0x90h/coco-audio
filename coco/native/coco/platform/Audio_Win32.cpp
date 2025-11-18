@@ -14,227 +14,222 @@ const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 
 
 struct FormatInfo {
-	uint8_t byteCount;
-	uint8_t validBits;
+    uint8_t byteCount;
+    uint8_t validBits;
 };
 static const FormatInfo infos[] = {{1, 8}, {2, 16}, {3, 24}, {4, 24}, {4, 32}};
 
 Audio_Win32::Audio_Win32(Loop_Win32 &loop, int sampleRate, int channelCount, Format format)
-	: BufferDevice(State::DISABLED)
-	, loop(loop), sampleRate(sampleRate), channelCount(channelCount), format(format)
-	, callback(makeCallback<Audio_Win32, &Audio_Win32::poll>(this))
+    : BufferDevice(State::DISABLED)
+    , loop_(loop), sampleRate_(sampleRate), channelCount_(channelCount), format_(format)
+    , callback_(makeCallback<Audio_Win32, &Audio_Win32::poll>(this))
 {
-	HRESULT result;
+    HRESULT result;
 
-	result = CoInitialize(nullptr);
-	if (result != S_OK)
-		return;
+    result = CoInitialize(nullptr);
+    if (result != S_OK)
+        return;
 
-	IMMDeviceEnumerator *enumerator;
-	result = CoCreateInstance(
+    IMMDeviceEnumerator *enumerator;
+    result = CoCreateInstance(
         CLSID_MMDeviceEnumerator, nullptr,
         CLSCTX_ALL, IID_IMMDeviceEnumerator,
         (void**)&enumerator);
-	if (result != S_OK)
-		return;
+    if (result != S_OK)
+        return;
 
-	// get default endpoint
-	result = enumerator->GetDefaultAudioEndpoint(
-        eRender, eConsole, &this->device);
-	enumerator->Release();
-	if (result != S_OK)
-		return;
+    // get default endpoint
+    result = enumerator->GetDefaultAudioEndpoint(
+        eRender, eConsole, &device_);
+    enumerator->Release();
+    if (result != S_OK)
+        return;
 
-	// get audio client
-	result = this->device->Activate(
+    // get audio client
+    result = device_->Activate(
         IID_IAudioClient, CLSCTX_ALL,
-        nullptr, (void**)&this->audioClient);
-	if (result != S_OK)
-		return;
+        nullptr, (void**)&audioClient_);
+    if (result != S_OK)
+        return;
 
-	// get mix format
-	//WAVEFORMATEXTENSIBLE *mixFormat;
-	//result = audioClient->GetMixFormat(reinterpret_cast<WAVEFORMATEX **>(&mixFormat));
-	//if (result != S_OK)
-	//	return;
+    // get mix format
+    //WAVEFORMATEXTENSIBLE *mixFormat;
+    //result = audioClient->GetMixFormat(reinterpret_cast<WAVEFORMATEX **>(&mixFormat));
+    //if (result != S_OK)
+    //	return;
 
-	// get format info
-	auto info = infos[int(format)];
+    // get format info
+    auto info = infos[int(format)];
 
-	// define sample format
-	WAVEFORMATEXTENSIBLE waveFormat;
-	waveFormat.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
-	waveFormat.Format.nChannels = channelCount;
-	waveFormat.Format.nSamplesPerSec = sampleRate;
-	waveFormat.Format.nAvgBytesPerSec = sampleRate * channelCount * info.byteCount;
-	/*this->sampleSize =*/ waveFormat.Format.nBlockAlign = channelCount * info.byteCount;
-	waveFormat.Format.wBitsPerSample = info.byteCount * 8;
-	waveFormat.Format.cbSize = 22;
-	waveFormat.Samples.wValidBitsPerSample = info.validBits;
-	waveFormat.dwChannelMask = channelCount == 1 ? SPEAKER_FRONT_CENTER : (SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT);
-	if (format != Format::FLOAT32)
-		waveFormat.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
-	else
-		waveFormat.SubFormat = KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
-	//CoTaskMemFree(mixFormat);
+    // define sample format
+    WAVEFORMATEXTENSIBLE waveFormat;
+    waveFormat.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+    waveFormat.Format.nChannels = channelCount;
+    waveFormat.Format.nSamplesPerSec = sampleRate;
+    waveFormat.Format.nAvgBytesPerSec = sampleRate * channelCount * info.byteCount;
+    waveFormat.Format.nBlockAlign = channelCount * info.byteCount; // sample size
+    waveFormat.Format.wBitsPerSample = info.byteCount * 8;
+    waveFormat.Format.cbSize = 22;
+    waveFormat.Samples.wValidBitsPerSample = info.validBits;
+    waveFormat.dwChannelMask = channelCount == 1 ? SPEAKER_FRONT_CENTER : (SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT);
+    if (format != Format::FLOAT32)
+        waveFormat.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+    else
+        waveFormat.SubFormat = KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
+    //CoTaskMemFree(mixFormat);
 
-	// initialize audio client
-	AUDCLNT_SHAREMODE shareMode = AUDCLNT_SHAREMODE_SHARED;
-	//AUDCLNT_SHAREMODE shareMode = AUDCLNT_SHAREMODE_EXCLUSIVE;
-	DWORD streamFlags = AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM;
-	REFERENCE_TIME bufferDuration = 1000 * 10000; // buffer duration in 100-nanosecond units
- 	result = this->audioClient->Initialize(shareMode, streamFlags, bufferDuration, 0,
-		&waveFormat.Format, nullptr);
-	if (result != S_OK)
-		return;
+    // initialize audio client
+    AUDCLNT_SHAREMODE shareMode = AUDCLNT_SHAREMODE_SHARED;
+    //AUDCLNT_SHAREMODE shareMode = AUDCLNT_SHAREMODE_EXCLUSIVE;
+    DWORD streamFlags = AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM;
+    REFERENCE_TIME bufferDuration = 1000 * 10000; // buffer duration in 100-nanosecond units
+     result = audioClient_->Initialize(shareMode, streamFlags, bufferDuration, 0,
+        &waveFormat.Format, nullptr);
+    if (result != S_OK)
+        return;
 
-	// get the actual size of the allocated buffer
-	UINT32 bufferFrameCount;
-    result = this->audioClient->GetBufferSize(&bufferFrameCount);
-	if (result != S_OK)
-		return;
+    // get the actual size of the allocated buffer
+    UINT32 bufferFrameCount;
+    result = audioClient_->GetBufferSize(&bufferFrameCount);
+    if (result != S_OK)
+        return;
 
-	result = this->audioClient->GetService(
+    result = audioClient_->GetService(
         IID_IAudioRenderClient,
-        (void**)&this->renderClient);
-	if (result != S_OK)
-		return;
+        (void**)&renderClient_);
+    if (result != S_OK)
+        return;
 
-	// start playing
-	result = audioClient->Start();
-	if (result != S_OK)
-		return;
+    // start playing
+    result = audioClient_->Start();
+    if (result != S_OK)
+        return;
 
 
-	this->st.state = State::READY;
+    st.state = State::READY;
 }
 
 Audio_Win32::~Audio_Win32() {
-	if (this->renderClient != nullptr)
-		this->renderClient->Release();
-	if (this->audioClient != nullptr)
-		this->audioClient->Release();
-	if (this->device != nullptr)
-		this->device->Release();
+    if (renderClient_ != nullptr)
+        renderClient_->Release();
+    if (audioClient_ != nullptr)
+        audioClient_->Release();
+    if (device_ != nullptr)
+        device_->Release();
 }
 
 int Audio_Win32::getBufferCount() {
-	return this->buffers.count();
+    return buffers_.count();
 }
 
 Audio_Win32::Buffer &Audio_Win32::getBuffer(int index) {
-	return this->buffers.get(index);
+    return buffers_.get(index);
 }
 
 void Audio_Win32::poll() {
-	this->polling = true;
+    polling_ = true;
 
-	// get number of valid frames that are still in the buffer
-	UINT32 validFrameCount;
-	HRESULT result = this->audioClient->GetCurrentPadding(&validFrameCount);
+    // get number of valid frames that are still in the buffer
+    UINT32 validFrameCount;
+    HRESULT result = audioClient_->GetCurrentPadding(&validFrameCount);
 
-	// get current position
-	int position = this->position - validFrameCount;
+    // get current position
+    int position = position_ - validFrameCount;
 
-	// set elapsed buffers to ready state
-	while (!this->transfers.empty()) {
-		auto it = this->transfers.begin();
-		int d = it->position - position;
-		Milliseconds<> duration = (d * 1000ms) / this->sampleRate;
-		if (duration.value <= 0) {
-			it->remove2();
-			it->setReady();
-		} else {
-			// calc duration in milliseconds until buffer elapses
-			std::cout << "invoke in " << duration.value << "ms" << std::endl;
-			this->loop.invoke(this->callback, duration);
-			return;
-		}
-	}
+    // set elapsed buffers to ready state
+    while (!transfers_.empty()) {
+        auto it = transfers_.begin();
+        int d = it->position_ - position;
+        Milliseconds<> duration = (d * 1000ms) / sampleRate_;
+        if (duration.value <= 0) {
+            it->remove2();
+            it->setReady();
+        } else {
+            // calc duration in milliseconds until buffer elapses
+            std::cout << "invoke in " << duration.value << "ms" << std::endl;
+            loop_.invoke(callback_, duration);
+            return;
+        }
+    }
 
-	this->polling = false;
+    polling_ = false;
 }
 
 
 // Buffer
 
 Audio_Win32::Buffer::Buffer(Audio_Win32 &device, int capacity)
-	: coco::Buffer(new uint8_t[capacity], capacity, device.st.state)
-	, device(device)
+    : coco::Buffer(new uint8_t[capacity], capacity, device.st.state)
+    , device_(device)
 {
-	device.buffers.add(*this);
+    device.buffers_.add(*this);
 }
 
 Audio_Win32::Buffer::~Buffer() {
-	delete [] this->p.data;
+    delete [] data_;
 }
 
 bool Audio_Win32::Buffer::start(Op op) {
-	if (this->st.state != State::READY) {
-		assert(this->st.state != State::BUSY);
-		return false;
-	}
+    if (st.state != State::READY) {
+        assert(st.state != State::BUSY);
+        return false;
+    }
 
-	// check if READ or WRITE flag is set
-	assert((op & Op::READ_WRITE) != 0);
+    // check if READ or WRITE flag is set
+    assert((op & Op::READ_WRITE) != 0);
 
-	// add to list of pending transfers
-	this->device.transfers.add(*this);
+    // add to list of pending transfers
+    device_.transfers_.add(*this);
 
-	// start if device is ready
-	if (this->device.st.state == Device::State::READY)
-		start();
+    // start if device is ready
+    if (device_.st.state == Device::State::READY)
+        start();
 
-	// set state
-	setBusy();
+    // set state
+    setBusy();
 
-	return true;
+    return true;
 }
 
 bool Audio_Win32::Buffer::cancel() {
-	if (this->st.state != State::BUSY)
-		return false;
+    if (st.state != State::BUSY)
+        return false;
 
-	remove2();
+    remove2();
 
-	return true;
+    return true;
 }
 
 void Audio_Win32::Buffer::start() {
-	auto &device = this->device;
+    auto &device = device_;
 
-	auto info = infos[int(device.format)];
-	int frameCount = this->p.size / info.byteCount;
+    auto info = infos[int(device_.format_)];
+    int frameCount = size_ / info.byteCount;
 
-	// get buffer
-	BYTE *bytes;
-	HRESULT result = device.renderClient->GetBuffer(frameCount, &bytes);
+    // get buffer
+    BYTE *bytes;
+    HRESULT result = device.renderClient_->GetBuffer(frameCount, &bytes);
 
-	// copy samples
-	if (device.format == Format::INT32_24) {
-		auto src = reinterpret_cast<const int32_t *>(this->p.data);
-		auto dst = reinterpret_cast<int32_t *>(bytes);
-		for (int i = 0; i < frameCount; ++i) {
-			dst[i] = src[i] << 8;
-		}
-	} else {
-		memcpy(bytes, this->p.data, frameCount * info.byteCount);
-	}
-	//const float *src = reinterpret_cast<float *>(this->p.data);
-	//float *dst = reinterpret_cast<float *>(bytes);
-	//for (int i = 0; i < frameCount; ++i) {
-	//	dst[i] = src[i];
-	//}
+    // copy samples
+    if (device.format_ == Format::INT32_24) {
+        auto src = reinterpret_cast<const int32_t *>(data_);
+        auto dst = reinterpret_cast<int32_t *>(bytes);
+        for (int i = 0; i < frameCount; ++i) {
+            dst[i] = src[i] << 8;
+        }
+    } else {
+        memcpy(bytes, data_, frameCount * info.byteCount);
+    }
 
-	// update stream position and end position of this buffer
-	this->position = (device.position += frameCount);
+    // update stream position and end position of this buffer
+    position_ = (device.position_ += frameCount);
 
-	// release buffer
-	DWORD flags = 0;
-	result = device.renderClient->ReleaseBuffer(frameCount, flags);
+    // release buffer
+    DWORD flags = 0;
+    result = device.renderClient_->ReleaseBuffer(frameCount, flags);
 
-	if (!device.polling)
-		device.poll();
+    if (!device.polling_)
+        device.poll();
 }
 
 } // namespace coco

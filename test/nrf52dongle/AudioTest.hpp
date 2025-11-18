@@ -37,20 +37,20 @@ constexpr int WORD_COUNT = SAMPLE_COUNT * sizeof(Sample) / 4;
  * Uin -> +3.3V (3V3)
  */
 struct Drivers {
-	Loop_RTC0 loop;
-	Audio_I2S audio{loop,
-		gpio::P0_20, // SCK
-		gpio::P0_21, // LRCK
-		gpio::P0_19, // data
-		48000Hz, FORMAT, WORD_COUNT};
-	Audio_I2S::Buffer<SAMPLE_COUNT * sizeof(Sample)> buffer1{audio};
-	Audio_I2S::Buffer<SAMPLE_COUNT * sizeof(Sample)> buffer2{audio};
+    Loop_RTC0 loop;
+    Audio_I2S audio{loop,
+        gpio::P0_20, // SCK
+        gpio::P0_21, // LRCK
+        gpio::P0_19, // data
+        48000Hz, FORMAT, WORD_COUNT};
+    Audio_I2S::Buffer<SAMPLE_COUNT * sizeof(Sample)> buffer1{audio};
+    Audio_I2S::Buffer<SAMPLE_COUNT * sizeof(Sample)> buffer2{audio};
 };
 
 Drivers drivers;
 
 extern "C" {
 void I2S_IRQHandler() {
-	drivers.audio.I2S_IRQHandler();
+    drivers.audio.I2S_IRQHandler();
 }
 }

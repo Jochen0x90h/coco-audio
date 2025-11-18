@@ -95,7 +95,7 @@ public:
     protected:
         void handle() override;
 
-        Audio_I2S &device;
+        Audio_I2S &device_;
     };
 
     /// @brief Buffer for transferring data to LED strip.
@@ -103,10 +103,10 @@ public:
     template <int C>
     class Buffer : public BufferBase {
     public:
-        Buffer(Audio_I2S &device) : BufferBase(data, C, device) {}
+        Buffer(Audio_I2S &device) : BufferBase(data_, C, device) {}
 
     protected:
-        alignas(4) uint8_t data[C];
+        alignas(4) uint8_t data_[C];
     };
 
     // needs to be called from I2S interrupt handler
@@ -126,14 +126,14 @@ public:
 protected:
     void update();
 
-    Loop_Queue &loop;
+    Loop_Queue &loop_;
 
     // list of buffers
-    IntrusiveList<BufferBase> buffers;
+    IntrusiveList<BufferBase> buffers_;
 
     // list of active transfers
-    BufferBase *transfer = nullptr;
-    InterruptQueue<BufferBase> transfers;
+    BufferBase *transfer_ = nullptr;
+    InterruptQueue<BufferBase> transfers_;
 };
 
 } // namespace coco

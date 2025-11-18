@@ -48,10 +48,10 @@ public:
     protected:
         void start();
 
-        Audio_Win32 &device;
+        Audio_Win32 &device_;
 
         // end position in stream
-        int position;
+        int position_;
     };
 
 
@@ -62,30 +62,29 @@ public:
 protected:
     void poll();
 
-    Loop_Win32 &loop;
+    Loop_Win32 &loop_;
 
     // audio client
-    IMMDevice *device = nullptr;
-    IAudioClient *audioClient = nullptr;
-    IAudioRenderClient *renderClient = nullptr;
+    IMMDevice *device_ = nullptr;
+    IAudioClient *audioClient_ = nullptr;
+    IAudioRenderClient *renderClient_ = nullptr;
 
-    int sampleRate;
-    int channelCount;
-    //int sampleSize;
-    Format format;
+    int sampleRate_;
+    int channelCount_;
+    Format format_;
 
     // polling callback
-    TimedTask<Callback> callback;
-    bool polling = false;
+    TimedTask<Callback> callback_;
+    bool polling_ = false;
 
     // list of buffers
-    IntrusiveList<Buffer> buffers;
+    IntrusiveList<Buffer> buffers_;
 
     // pending transfers
-    IntrusiveList2<Buffer> transfers;
+    IntrusiveList2<Buffer> transfers_;
 
     // accumulated stream position
-    int position = 0;
+    int position_ = 0;
 };
 
 } // namespace coco
