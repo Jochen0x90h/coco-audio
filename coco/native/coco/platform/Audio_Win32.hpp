@@ -42,11 +42,11 @@ public:
         Buffer(Audio_Win32 &device, int size);
         ~Buffer() override;
 
-        bool start(Op op) override;
+        bool start() override;
         bool cancel() override;
 
     protected:
-        void start();
+        void transfer();
 
         Audio_Win32 &device_;
 

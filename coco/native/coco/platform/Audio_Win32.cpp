@@ -1,6 +1,7 @@
 #include "Audio_Win32.hpp"
+#include <coco/convert.hpp>
+#include <coco/debug.hpp>
 #include <filesystem>
-#include <iostream>
 
 
 namespace coco {
@@ -106,7 +107,7 @@ Audio_Win32::Audio_Win32(Loop_Win32 &loop, int sampleRate, int channelCount, For
         return;
 
 
-    st.state = State::READY;
+    state_ = State::READY;
 }
 
 Audio_Win32::~Audio_Win32() {
@@ -146,7 +147,7 @@ void Audio_Win32::poll() {
             it->setReady();
         } else {
             // calc duration in milliseconds until buffer elapses
-            std::cout << "invoke in " << duration.value << "ms" << std::endl;
+            debug::out << "invoke in " << dec(duration.value) << "ms\n";
             loop_.invoke(callback_, duration);
             return;
         }
@@ -159,7 +160,7 @@ void Audio_Win32::poll() {
 // Buffer
 
 Audio_Win32::Buffer::Buffer(Audio_Win32 &device, int capacity)
-    : coco::Buffer(new uint8_t[capacity], capacity, device.st.state)
+    : coco::Buffer(new uint8_t[capacity], capacity, device.state_)
     , device_(device)
 {
     device.buffers_.add(*this);
@@ -169,21 +170,22 @@ Audio_Win32::Buffer::~Buffer() {
     delete [] data_;
 }
 
-bool Audio_Win32::Buffer::start(Op op) {
-    if (st.state != State::READY) {
-        assert(st.state != State::BUSY);
+bool Audio_Win32::Buffer::start() {
+    if (state_ != State::READY) {
+        assert(false);
+        setError(std::errc::resource_unavailable_try_again);
         return false;
     }
-
-    // check if READ or WRITE flag is set
-    assert((op & Op::READ_WRITE) != 0);
+    if ((op_ & Op::WRITE) == 0 || size_ == 0) {
+        setSuccess();
+        return false;
+    }
 
     // add to list of pending transfers
     device_.transfers_.add(*this);
 
-    // start if device is ready
-    if (device_.st.state == Device::State::READY)
-        start();
+    // start
+    transfer();
 
     // set state
     setBusy();
@@ -192,15 +194,19 @@ bool Audio_Win32::Buffer::start(Op op) {
 }
 
 bool Audio_Win32::Buffer::cancel() {
-    if (st.state != State::BUSY)
+    if (state_ != State::BUSY)
         return false;
 
+    // remove from list of transfers (transfers_)
     remove2();
+
+    setError(std::errc::operation_canceled);
+    setReady();
 
     return true;
 }
 
-void Audio_Win32::Buffer::start() {
+void Audio_Win32::Buffer::transfer() {
     auto &device = device_;
 
     auto info = infos[int(device_.format_)];

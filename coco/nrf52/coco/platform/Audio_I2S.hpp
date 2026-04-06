@@ -89,7 +89,7 @@ public:
         BufferBase(uint8_t *data, int capacity, Audio_I2S &device);
         ~BufferBase() override;
 
-        bool start(Op op) override;
+        bool start() override;
         bool cancel() override;
 
     protected:
@@ -131,9 +131,11 @@ protected:
     // list of buffers
     IntrusiveList<BufferBase> buffers_;
 
-    // list of active transfers
+    // current transfer
     BufferBase *transfer_ = nullptr;
-    InterruptQueue<BufferBase> transfers_;
+
+    // list of active transfers
+    InterruptQueue2<BufferBase> transfers_;
 };
 
 } // namespace coco
