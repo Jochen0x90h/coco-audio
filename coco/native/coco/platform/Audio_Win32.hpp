@@ -10,7 +10,7 @@ namespace coco {
 
 /// @brief Audio implementation using Windows Audio Session API (WASAPI)
 /// https://learn.microsoft.com/en-us/windows/win32/coreaudio/wasapi
-class Audio_Win32 : public BufferDevice {
+class Audio_Win32 : public BufferDevice, public Loop_Win32::TimeoutHandler {
 public:
     enum class Format {
         UINT8,
@@ -36,7 +36,7 @@ public:
 
     /// @brief Buffer for transferring data to/from audio device
     ///
-    class Buffer : public coco::Buffer, public IntrusiveListNode, public IntrusiveListNode2 {
+    class Buffer : public coco::Buffer, public coco::IntrusiveListNode, public IntrusiveListNode2 {
         friend class Audio_Win32;
     public:
         Buffer(Audio_Win32 &device, int size);
@@ -60,7 +60,8 @@ public:
     Buffer &getBuffer(int index) override;
 
 protected:
-    void poll();
+    //void poll();
+    void onTimeout() override;
 
     Loop_Win32 &loop_;
 
@@ -73,15 +74,14 @@ protected:
     int channelCount_;
     Format format_;
 
-    // polling callback
-    TimedTask<Callback> callback_;
+    // polling state
     bool polling_ = false;
 
     // list of buffers
     IntrusiveList<Buffer> buffers_;
 
     // pending transfers
-    IntrusiveList2<Buffer> transfers_;
+    IntrusiveList<Buffer, IntrusiveListNode2> transfers_;
 
     // accumulated stream position
     int position_ = 0;

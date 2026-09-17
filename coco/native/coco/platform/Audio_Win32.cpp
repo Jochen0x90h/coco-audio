@@ -23,7 +23,6 @@ static const FormatInfo infos[] = {{1, 8}, {2, 16}, {3, 24}, {4, 24}, {4, 32}};
 Audio_Win32::Audio_Win32(Loop_Win32 &loop, int sampleRate, int channelCount, Format format)
     : BufferDevice(State::DISABLED)
     , loop_(loop), sampleRate_(sampleRate), channelCount_(channelCount), format_(format)
-    , callback_(makeCallback<Audio_Win32, &Audio_Win32::poll>(this))
 {
     HRESULT result;
 
@@ -53,7 +52,7 @@ Audio_Win32::Audio_Win32(Loop_Win32 &loop, int sampleRate, int channelCount, For
     if (result != S_OK)
         return;
 
-    // get mix format
+    // debug: get mix format
     //WAVEFORMATEXTENSIBLE *mixFormat;
     //result = audioClient->GetMixFormat(reinterpret_cast<WAVEFORMATEX **>(&mixFormat));
     //if (result != S_OK)
@@ -127,7 +126,7 @@ Audio_Win32::Buffer &Audio_Win32::getBuffer(int index) {
     return buffers_.get(index);
 }
 
-void Audio_Win32::poll() {
+void Audio_Win32::onTimeout() {
     polling_ = true;
 
     // get number of valid frames that are still in the buffer
@@ -148,7 +147,7 @@ void Audio_Win32::poll() {
         } else {
             // calc duration in milliseconds until buffer elapses
             debug::out << "invoke in " << dec(duration.value) << "ms\n";
-            loop_.invoke(callback_, duration);
+            loop_.invoke(*this, duration);
             return;
         }
     }
@@ -235,7 +234,7 @@ void Audio_Win32::Buffer::transfer() {
     result = device.renderClient_->ReleaseBuffer(frameCount, flags);
 
     if (!device.polling_)
-        device.poll();
+        device.onTimeout();
 }
 
 } // namespace coco

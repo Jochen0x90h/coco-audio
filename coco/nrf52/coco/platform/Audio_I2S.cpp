@@ -65,9 +65,9 @@ void Audio_I2S::update() {
     //gpio::setOutput(DEBUG_PIN, false);
 
     if (transfer_ != nullptr) {
-        // current transfer is ready: pass buffer to event loop so that app gets notified (via BufferBase::handle())
+        // current transfer is ready: pass buffer to event loop so that app gets notified (via BufferBase::onCompletion())
         loop_.push(*transfer_);
-        transfer_ = nullptr;
+        //transfer_ = nullptr;
     }
 
     // start next buffer
@@ -87,16 +87,13 @@ void Audio_I2S::update() {
         debug::setRed();
     }*/
 
-    if (transfers_.pop(
+    // start next buffer
+    transfer_ = transfers_.pop(
         [](BufferBase &next) {
             // start next buffer
             NRF_I2S->TXD.PTR = uintptr_t(next.data_);
-        },
-        [this](BufferBase &buffer) {
-            // set as current transfer
-            transfer_ = &buffer;
-        }) == nullptr)
-    {
+        });
+    if (transfer_ == nullptr) {
         // no more buffers: stop I2S
         NRF_I2S->TASKS_STOP = TRIGGER;
         debug::setRed();
@@ -153,14 +150,14 @@ bool Audio_I2S::BufferBase::cancel() {
     auto &device = device_;
 
     // remove from pending transfers if not yet started, otherwise complete normally
-    if (device.transfers_.removeButFirst(nvic::Guard(I2S_IRQn), *this)) {
+    if (device.transfers_.guardedRemoveExceptFirst(nvic::Guard(I2S_IRQn), *this)) {
         setError(std::errc::operation_canceled);
         setReady();
     }
     return true;
 }
 
-void Audio_I2S::BufferBase::handle() {
+void Audio_I2S::BufferBase::onCompletion() {
     setReady();
 }
 

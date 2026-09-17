@@ -79,7 +79,7 @@ public:
 
 
     // internal buffer base class, derives from IntrusiveListNode for the list of active transfers and Loop_Queue::Handler to be notified from the event loop
-    class BufferBase : public coco::Buffer, public IntrusiveListNode, public Loop_Queue::Handler {
+    class BufferBase : public coco::Buffer, public IntrusiveListNode, public Loop_Queue::CompletionHandler {
         friend class Audio_I2S;
     public:
         /// @brief Constructor
@@ -93,7 +93,7 @@ public:
         bool cancel() override;
 
     protected:
-        void handle() override;
+        void onCompletion() override;
 
         Audio_I2S &device_;
     };
@@ -135,7 +135,7 @@ protected:
     BufferBase *transfer_ = nullptr;
 
     // list of active transfers
-    InterruptQueue2<BufferBase> transfers_;
+    InterruptQueue<BufferBase> transfers_;
 };
 
 } // namespace coco
